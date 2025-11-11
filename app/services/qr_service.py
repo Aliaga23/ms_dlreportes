@@ -4,7 +4,7 @@ Servicio para detección y procesamiento de códigos QR
 
 import cv2
 import numpy as np
-from pyzbar import pyzbar
+from qreader import QReader
 from PIL import Image
 import re
 
@@ -13,6 +13,7 @@ class QRCodeService:
         """
         Inicializar servicio de QR
         """
+        self.qr_reader = QReader()
         self.qr_patterns = {
             'entrega_id': r'entregaId[=:]([a-f0-9\-]+)',
             'url_entrega': r'entrega[/\?]([a-f0-9\-]+)',
@@ -31,34 +32,25 @@ class QRCodeService:
             else:
                 gray = image.copy()
             
-            # Detectar códigos QR
-            qr_codes = pyzbar.decode(gray)
+            # Detectar códigos QR usando qreader
+            decoded_texts = self.qr_reader.detect_and_decode(image=gray)
             
             results = []
-            for qr in qr_codes:
-                # Extraer datos
-                data = qr.data.decode('utf-8')
-                qr_type = qr.type
-                
-                # Coordenadas del QR
-                x, y, w, h = qr.rect
-                
-                # Extraer posible entrega ID
-                entrega_id = self.extract_entrega_id(data)
-                
-                qr_info = {
-                    'data': data,
-                    'type': qr_type,
-                    'bbox': {
-                        'x': x, 'y': y, 
-                        'width': w, 'height': h,
-                        'x2': x + w, 'y2': y + h
-                    },
-                    'entrega_id': entrega_id,
-                    'is_entrega': entrega_id is not None
-                }
-                
-                results.append(qr_info)
+            if decoded_texts:
+                for idx, data in enumerate(decoded_texts):
+                    if data:  # Si se decodificó algo
+                        # Extraer posible entrega ID
+                        entrega_id = self.extract_entrega_id(data)
+                        
+                        qr_info = {
+                            'data': data,
+                            'type': 'QRCODE',
+                            'bbox': None,  # qreader no proporciona coordenadas directamente
+                            'entrega_id': entrega_id,
+                            'is_entrega': entrega_id is not None
+                        }
+                        
+                        results.append(qr_info)
             
             return {
                 'success': True,

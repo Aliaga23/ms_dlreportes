@@ -4,6 +4,8 @@ Router para endpoints de OCR y procesamiento de encuestas
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
+import cv2
+import numpy as np
 import json
 import asyncio
 import logging

@@ -17,18 +17,29 @@ class FirebaseNotificationService:
         Inicializar Firebase Admin SDK
         """
         try:
-            # Ruta al archivo de credenciales
-            firebase_credentials_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase-service-account.json')
-            
-            if not os.path.exists(firebase_credentials_path):
-                print(f"Archivo de credenciales Firebase no encontrado en: {firebase_credentials_path}")
-                print("Descarga el archivo desde Firebase Console > Configuración > Cuentas de servicio")
-                self.firebase_app = None
-                return
-            
             # Inicializar Firebase Admin SDK
             if not firebase_admin._apps:
-                cred = credentials.Certificate(firebase_credentials_path)
+                # Intentar leer desde variable de entorno primero (para Railway)
+                firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+                
+                if firebase_creds_json:
+                    # Parsear el JSON desde la variable de entorno
+                    cred_dict = json.loads(firebase_creds_json)
+                    cred = credentials.Certificate(cred_dict)
+                    print("Usando credenciales Firebase desde variable de entorno")
+                else:
+                    # Fallback: leer desde archivo local (desarrollo)
+                    firebase_credentials_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase-service-account.json')
+                    
+                    if not os.path.exists(firebase_credentials_path):
+                        print(f"Archivo de credenciales Firebase no encontrado en: {firebase_credentials_path}")
+                        print("Descarga el archivo desde Firebase Console > Configuración > Cuentas de servicio")
+                        self.firebase_app = None
+                        return
+                    
+                    cred = credentials.Certificate(firebase_credentials_path)
+                    print("Usando credenciales Firebase desde archivo local")
+                
                 self.firebase_app = firebase_admin.initialize_app(cred)
                 print("Firebase Admin SDK inicializado correctamente")
             else:

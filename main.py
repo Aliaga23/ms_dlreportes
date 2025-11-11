@@ -1,6 +1,6 @@
 """
 API principal con estructura modular
-Integra el router OCR con los endpoints existentes
+Servicio de Audio y Reportes
 """
 
 from fastapi import FastAPI
@@ -11,9 +11,9 @@ from app.routers.audio_router import router as audio_router
 
 # Crear aplicación FastAPI
 app = FastAPI(
-    title="API de Reconocimiento de Texto y Audio con IA",
-    description="API modular para OCR, Audio, checkboxes y procesamiento de encuestas",
-    version="2.1.0"
+    title="API de Audio, OCR y Reportes con IA",
+    description="API para procesamiento de audio con Whisper, OCR con Gemini y reportes",
+    version="2.0.0"
 )
 
 # Configurar CORS
@@ -34,8 +34,8 @@ app.include_router(reports_router)
 @app.get("/")
 async def root():
     return {
-        "message": "API de Reconocimiento de Texto con IA v2.0",
-        "description": "API que procesa automáticamente encuestas desde imágenes usando QR y OCR"
+        "message": "API de Audio y Reportes v2.0",
+        "description": "API para procesamiento de audio con Whisper y generación de reportes"
     }
 
 @app.get("/health")

@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sw2p2-dlreportes
+  labels:
+    app: sw2p2-dlreportes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sw2p2-dlreportes
+  template:
+    metadata:
+      labels:
+        app: sw2p2-dlreportes
+    spec:
+      imagePullSecrets:
+      - name: do-registry
+      containers:
+      - name: sw2p2-dlreportes
+        image: registry.digitalocean.com/sw2p2-registry/sw2p2-dlreportes:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: sw2p2-env-secrets
+        volumeMounts:
+        - name: firebase-credentials
+          mountPath: /app/firebase-service-account.json
+          subPath: firebase-service-account.json
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: firebase-credentials
+        secret:
+          secretName: firebase-credentials

@@ -4,7 +4,6 @@ Servicio para detección y procesamiento de códigos QR
 
 import cv2
 import numpy as np
-from qreader import QReader
 from PIL import Image
 import re
 
@@ -13,7 +12,7 @@ class QRCodeService:
         """
         Inicializar servicio de QR
         """
-        self.qr_reader = QReader()
+        self.qr_detector = cv2.QRCodeDetector()
         self.qr_patterns = {
             'entrega_id': r'entregaId[=:]([a-f0-9\-]+)',
             'url_entrega': r'entrega[/\?]([a-f0-9\-]+)',
@@ -32,25 +31,23 @@ class QRCodeService:
             else:
                 gray = image.copy()
             
-            # Detectar códigos QR usando qreader
-            decoded_texts = self.qr_reader.detect_and_decode(image=gray)
+            # Detectar y decodificar códigos QR usando OpenCV
+            data, bbox, _ = self.qr_detector.detectAndDecode(gray)
             
             results = []
-            if decoded_texts:
-                for idx, data in enumerate(decoded_texts):
-                    if data:  # Si se decodificó algo
-                        # Extraer posible entrega ID
-                        entrega_id = self.extract_entrega_id(data)
-                        
-                        qr_info = {
-                            'data': data,
-                            'type': 'QRCODE',
-                            'bbox': None,  # qreader no proporciona coordenadas directamente
-                            'entrega_id': entrega_id,
-                            'is_entrega': entrega_id is not None
-                        }
-                        
-                        results.append(qr_info)
+            if data:
+                # Extraer posible entrega ID
+                entrega_id = self.extract_entrega_id(data)
+                
+                qr_info = {
+                    'data': data,
+                    'type': 'QRCODE',
+                    'bbox': self._format_bbox(bbox) if bbox is not None else None,
+                    'entrega_id': entrega_id,
+                    'is_entrega': entrega_id is not None
+                }
+                
+                results.append(qr_info)
             
             return {
                 'success': True,
@@ -68,6 +65,31 @@ class QRCodeService:
                 'entrega_qrs': [],
                 'error': str(e)
             }
+    
+    def _format_bbox(self, bbox):
+        """
+        Formatear bbox de OpenCV al formato esperado
+        """
+        if bbox is None or len(bbox) == 0:
+            return None
+        
+        # OpenCV devuelve puntos como [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+        points = bbox[0]
+        x_coords = [p[0] for p in points]
+        y_coords = [p[1] for p in points]
+        
+        x = int(min(x_coords))
+        y = int(min(y_coords))
+        x2 = int(max(x_coords))
+        y2 = int(max(y_coords))
+        w = x2 - x
+        h = y2 - y
+        
+        return {
+            'x': x, 'y': y,
+            'width': w, 'height': h,
+            'x2': x2, 'y2': y2
+        }
     
     def extract_entrega_id(self, qr_data):
         """
@@ -118,7 +140,10 @@ class QRCodeService:
         output = image.copy()
         
         for qr in qr_results['qr_codes']:
-            bbox = qr['bbox']
+            bbox = qr.get('bbox')
+            if bbox is None:
+                continue
+                
             x, y, w, h = bbox['x'], bbox['y'], bbox['width'], bbox['height']
             
             # Expandir un poco el área para asegurar eliminación completa
@@ -176,14 +201,16 @@ class QRCodeService:
         if not entrega_qrs:
             return None
         
-        # Si hay múltiples, elegir el más grande (probablemente más confiable)
-        best_qr = max(entrega_qrs, key=lambda x: x['bbox']['width'] * x['bbox']['height'])
+        # Si hay múltiples, elegir el primero (o el más grande si tienen bbox)
+        best_qr = entrega_qrs[0]
+        if best_qr.get('bbox'):
+            best_qr = max(entrega_qrs, key=lambda x: x['bbox']['width'] * x['bbox']['height'] if x.get('bbox') else 0)
         
         return {
             'entrega_id': best_qr['entrega_id'],
             'qr_data': best_qr['data'],
             'confidence': 'high' if len(entrega_qrs) == 1 else 'medium',
-            'bbox': best_qr['bbox']
+            'bbox': best_qr.get('bbox')
         }
 
 # Instancia global del servicio
